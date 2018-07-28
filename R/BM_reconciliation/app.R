@@ -9,6 +9,7 @@ library(ggiraph)
 library(plotly)
 library(kableExtra)
 
+#test aja
 BM_df  <- readRDS("~/ShinyApps/model_reconciliation/objects/BM_df.rds")
 # BM_df  <- readRDS(here::here("objects", "BM_df.rds"))
 

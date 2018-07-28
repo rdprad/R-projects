@@ -1,0 +1,172 @@
+---
+title: "Truck Speed Analysis at "
+author: ""
+date: ""
+output:
+  pdf_document: 
+    dev: png
+  html_document: default
+---
+
+```{r setup, include=FALSE, cache=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+require(sp)
+require(rgdal)
+
+folder <- "C:/Rama/R/TruckSpeedData/Week45/"      
+file_list <- list.files(path=folder, pattern="*.csv") 
+
+headers <-   do.call("rbind", 
+                        lapply(file_list, 
+                               function(x) 
+                                 read.csv(paste(folder, x, sep=''),
+                                          nrows=1, header=F,
+                                          stringsAsFactors = FALSE)))
+
+data1<-   do.call("rbind", 
+                        lapply(file_list, 
+                               function(x) 
+                                 read.csv(paste(folder, x, sep=''),
+                                          skip=2, header=F,
+                                          stringsAsFactors = FALSE)))
+colnames(data1) <- headers[1,]
+data1$period <- "week 45"
+
+folder <- "C:/Rama/R/TruckSpeedData/Week46/"      
+file_list <- list.files(path=folder, pattern="*.csv") 
+
+data2 <-   do.call("rbind", 
+                        lapply(file_list, 
+                               function(x) 
+                                 read.csv(paste(folder, x, sep=''),
+                                          skip=2, header=F,
+                                          stringsAsFactors = FALSE)))
+colnames(data2) <- headers[1,]
+data2$period <- "week 46"
+
+TruckSpeed <- rbind(data1, data2)
+TruckSpeed$kph <- TruckSpeed$speed * 3.6
+coordinates(TruckSpeed) <- c("position_x", "position_y")
+polygon_lim <- readOGR(dsn="c:/Rama/R/TruckSpeedData/polygon-polygon.shp")
+proj4string(TruckSpeed) <- proj4string(polygon_lim)
+inside.code <- !is.na(over(TruckSpeed, as(polygon_lim, "SpatialPolygons")))
+TruckSpeed$Name<- over(TruckSpeed, polygon_lim)
+TruckSpeed <- as.data.frame(TruckSpeed)
+
+TruckSpeed$Plan_speed <- ifelse(TruckSpeed$Name=="dump",35,
+                            ifelse(TruckSpeed$Name=="inpit", 15,
+                                ifelse(TruckSpeed$Name=="intersection",20,
+                                    ifelse(TruckSpeed$Name=="surf_flat", 35,
+                                        ifelse(TruckSpeed$Name=="tsf_flat", 45,
+                                            ifelse(TruckSpeed$Name=="tsf_top", 30,
+                                                ifelse(TruckSpeed$Name=="ramp" & TruckSpeed$cycle_stage=="Empty Haul", 25,
+                                                    ifelse(TruckSpeed$Name=="ramp" & TruckSpeed$cycle_stage=="Full Haul", 12.5, NA))))))))
+
+```
+
+## Background
+
+GPS trace for the 930E trucks were reported on a shift base and stored as csv file in this folder: `\\aumelzoytstg\analytics\shift_speeds_dispatch_last_shift`. Data analysis has been carried out on various segments and segregated by loaded/empty condition. The method used is grouping the data points by area within geofences filter, these area are categorized into: dump, inpit, intersection, ramp, surface flat, tsf flat, tsf top embankment. The idea is to mimic the haulage model segmentation and localized the 930E's speed data points to be able to calculate average speed for each segment, this can possibly be used to reconcile current haulage model speed table setup.
+
+## Data Analysis of Week 45-46
+
+Assumption: \newline
+Average speed calculation is based on mean data points on separate segments, this is assumed to give a similar result as calculating the average speed using segment length divided by total travel time from one end to the other.
+
+Picture below shows the GPS trace for 930E trucks on week 46, the data has been filtered to show operating time only:
+
+```{r TruckSpeed, dpi=300, echo=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2)
+TruckSpeed %>% 
+  filter(opreason=="OPERATING", cycle_stage %in% c("Empty Haul", "Full Haul"), grepl('930e',equipment_model), period=="week 46") %>% 
+  ggplot(aes(x=position_x, y=position_y))+
+  geom_point(aes(col=Name), pch=".")+
+  guides(col = guide_legend(override.aes = list(pch=16,size=2)))+
+  coord_equal(ratio=1)+
+  theme_bw()+
+  labs(title="Figure 1 - 930E Speed at various segments",
+       subtitle="Data of week 45-46",
+       x="Easting",
+       y="Northing")
+```
+
+The data has been filtered using following criteria:
+
+*opreason = OPERATING;*
+*cycle_stage = Empty Haul or Full Haul;*
+*equipment_model = contains("930e")*
+
+A boxplot generated based on the group of segments and loaded/empty condition, it is shown as below:
+```{r dpi=300, echo=FALSE, message=FALSE}
+library(ggplot2)
+TruckSpeed %>% 
+  filter(opreason=="OPERATING", cycle_stage %in% c("Empty Haul", "Full Haul"), !is.na(Name), grepl('930e',equipment_model), period=="week 46") %>% 
+  ggplot(aes(x = cycle_stage, y = kph, fill=Name)) +
+    geom_boxplot() +
+    stat_summary(fun.y=mean, geom="point", shape=3, size=3, color="white") +
+    stat_summary(aes(label=round(..y..,1)), fun.y=mean, geom="text", size=3, vjust = -0.5)+
+    theme_bw()+
+    labs(title="Figure 2 - Boxplot of 930E Speed",
+       x="Cycle Stage",
+       y="Speed (kph)")+
+    theme(legend.position = "none")+
+    facet_grid(.~Name)+
+    scale_x_discrete(labels=c("empty","loaded"))
+```
+
+The summary of the data are shown in the table below:
+```{r echo=FALSE, message=FALSE}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(formattable)
+library(tidyr)
+TruckSpeed %>% 
+  filter(opreason=="OPERATING", cycle_stage %in% c("Empty Haul", "Full Haul"), !is.na(Name), grepl('930e',equipment_model)) %>% 
+  group_by(opreason, Name, cycle_stage) %>% 
+  summarise(week_45=round(mean(kph[period=="week 45"]),1),
+            week_46=round(mean(kph[period=="week 46"]),1),
+            Plan_speed=round(mean(Plan_speed),1)) %>% 
+  # mutate(Plan_speed = color_bar("lightgreen")(Plan_speed)) %>% 
+  kable(escape = F,  caption = "Average 930E Speed at Various Segment")
+  # kable_styling(bootstrap_options = c("striped", "hover"))
+  # row_spec(1:2, background = "yellow") %>% 
+  # row_spec(13:14, background = "yellow")
+
+  
+
+```
+
+*Truck speed at dumps and TSF embankment(tsf_top) are reduced to 20kph within 50m proximity distance*
+<!-- \newpage -->
+<!-- ## Softwares -->
+<!--   **R Project**\newline -->
+<!--   R Core Team (2017). R: A language and environment for statistical computing. R Foundation for Statistical Computing, -->
+<!--   Vienna, Austria. URL <https://www.R-project.org/>. -->
+
+<!--   *R Packages:* -->
+
+<!--   Roger Bivand, Tim Keitt and Barry Rowlingson (2017). rgdal: Bindings for the 'Geospatial' Data Abstraction Library. -->
+<!--   R package version 1.2-13. <https://CRAN.R-project.org/package=rgdal> -->
+
+<!--   Pebesma, E.J., R.S. Bivand, 2005. Classes and methods for spatial data in R. R News 5 (2), -->
+<!--   <https://cran.r-project.org/doc/Rnews/>. -->
+
+<!--   Roger S. Bivand, Edzer Pebesma, Virgilio Gomez-Rubio, 2013. Applied spatial data analysis with R, Second edition. -->
+<!--   Springer, NY. <http://www.asdar-book.org/> -->
+
+<!--   Hadley Wickham, Romain Francois, Lionel Henry and Kirill Müller (2017). dplyr: A Grammar of Data Manipulation. R -->
+<!--   package version 0.7.4. <https://CRAN.R-project.org/package=dplyr> -->
+
+<!--   H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2009. -->
+
+<!--   Yihui Xie (2017). knitr: A General-Purpose Package for Dynamic Report Generation in R. R package version 1.17. -->
+
+<!--   Yihui Xie (2015) Dynamic Documents with R and knitr. 2nd edition. Chapman and Hall/CRC. ISBN 978-1498716963 -->
+
+<!--   Yihui Xie (2014) knitr: A Comprehensive Tool for Reproducible Research in R. In Victoria Stodden, Friedrich Leisch -->
+<!--   and Roger D. Peng, editors, Implementing Reproducible Computational Research. Chapman and Hall/CRC. ISBN -->
+<!--   978-1466561595 -->
+
+  

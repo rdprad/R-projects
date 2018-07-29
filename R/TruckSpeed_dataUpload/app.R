@@ -45,7 +45,7 @@ server <- function(input,output){
    return(NULL)
   } else {
    inFile %>% 
-    rowwise() %>% 
+    !ncolwise() %>% 
     do ({
      read.csv(.$datapath,nrows = 1, header=F,
               stringsAsFactors = FALSE)

@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 require(sp)
 require(rgdal)
 
-folder <- "C:/Rama/R/TruckSpeedData/Week45/"      
+folder <- ""      
 file_list <- list.files(path=folder, pattern="*.csv") 
 
 headers <-   do.call("rbind", 
@@ -32,7 +32,7 @@ data1<-   do.call("rbind",
 colnames(data1) <- headers[1,]
 data1$period <- "week 45"
 
-folder <- "C:/Rama/R/TruckSpeedData/Week46/"      
+folder <- ""      
 file_list <- list.files(path=folder, pattern="*.csv") 
 
 data2 <-   do.call("rbind", 

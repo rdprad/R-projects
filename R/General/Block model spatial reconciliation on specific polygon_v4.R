@@ -20,10 +20,10 @@ colnames(BMframe)[1:2] <- c("xcentre", "ycentre")
 library(sp)
 library(sf)
 library(rgdal)
-poly_shp <- readOGR(dsn="C:/Rama/OC_Model_Clone/all-polygon.shp")
+poly_shp <- readOGR(dsn="")
 
 # import block models
-resource10 <- read.csv("C:/Rama/Resource/ots_2011_reblock_10x10x15.asc", header = T)
+resource10 <- read.csv("", header = T)
 resource10_trim <- resource10 %>%
                       filter(xcentre>64933,xcentre<651820,
                       ycentre>4762030, ycentre<4764930,
@@ -31,7 +31,7 @@ resource10_trim <- resource10 %>%
                       select(xcentre, ycentre, zcentre, cu, au, as, density)
                       
 library(odbc)
-OCcon <- dbConnect(odbc::odbc(), "MNOYTSQLD7")
+OCcon <- dbConnect(odbc::odbc(), "")
 OCcon_df <- dbGetQuery(OCcon, "select xworld, yworld, zworld, BCU, BAU, BAS, SG FROM OTVulcan.dbo.OTBM WHERE zworld>800")
 colnames(OCcon_df)[1:3] <- c("xcentre", "ycentre", "zcentre")
 OCcon_df <- OCcon_df %>% 
@@ -39,7 +39,7 @@ OCcon_df <- OCcon_df %>%
          ycentre>4762030, ycentre<4764930,
          zcentre>800, zcentre<=1170)
 
-# phasename <- read.csv("C:/Rama/OC_Model_Clone/Phase.csv", header = T)
+# phasename <- read.csv("", header = T)
 # phasename <- phasename %>% 
 #                 filter(PHASE>0)
 colnames(phasename)[1:3] <- c("xcentre", "ycentre", "zcentre")

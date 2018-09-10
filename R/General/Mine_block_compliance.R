@@ -18,7 +18,7 @@ ggplot(data.frame(SPI=c(20,250)), aes(x=SPI))+
 # start ------------
 library(dplyr)
 library(DBI)
-con <- dbConnect(odbc::odbc(), .connection_string = "Driver={SQL Server};SERVER=MNOYTSQLD1;database=OpenPit;trusted_connection=true")
+con <- dbConnect(odbc::odbc(), .connection_string = "Driver={SQL Server};SERVER=;database=;trusted_connection=true")
 year <- substr(Sys.Date(),1,4)
 q1 <- tbl(con, "Actual_Data") %>% 
           filter(Year==year) 
@@ -33,7 +33,7 @@ Qcon$HPKT <- ifelse(Qcon$TPOH>0, 1000/Qcon$TPOH, 1000/4190)
 
 
 
-OCcon <- dbConnect(odbc::odbc(), .connection_string = "Driver={SQL Server};SERVER=MNOYTSQL7;database=MineToMill2;trusted_connection=true")
+OCcon <- dbConnect(odbc::odbc(), .connection_string = "Driver={SQL Server};SERVER=;database=;trusted_connection=true")
 q2 <- tbl(OCcon, "OC_AllReady_FRONT") %>% 
   select(cutName, Tonnes)
 Qcon2 <- collect(q2)
